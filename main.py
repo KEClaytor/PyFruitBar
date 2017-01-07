@@ -4,6 +4,12 @@ import sys
 from subprocess import PIPE, Popen
 from threading  import Thread
 
+# Configure LCD Plate
+import Adafruit_CharLCD as LCD
+lcd = LCD.Adafruit_CharLCDPlate()
+lcd.set_color(1.0, 1.0, 1.0)
+lcd.clear()
+
 # This SO question saved my bacon
 # http://stackoverflow.com/questions/375427/non-blocking-read-on-a-subprocess-pipe-in-python
 # The proc.stdout.readline() is blocking and hangs when it reaches the end
@@ -26,11 +32,16 @@ t.daemon = True # thread dies with the program
 t.start()
 
 # Some key definitions
-LEFT = 'a'
-UP = 'w'
-DOWN = 's'
-RIGHT = 'd'
-SELECT = 'e'
+#LEFT = 'a'
+#UP = 'w'
+#DOWN = 's'
+#RIGHT = 'd'
+#SELECT = 'e'
+UP = LCD.UP
+DOWN = LCD.DOWN
+LEFT = LCD.LEFT
+RIGHT = LCD.RIGHT
+SELECT = LCD.SELECT
 
 def get_channels():
     channels = []
@@ -90,18 +101,23 @@ def like_song():
     send_command(cmd)
 
 def update_display(level, channels, select_channel, current_channel):
+    lcd.clear()
     if level == 'start':
         print('Initalizing')
+        lcd.message('Initalizing')
     elif level == 'song':
         # Get the song name and current progress
         # Update the screen accordingly
         print('Playing a song')
+        lcd.message('Now playing:')
     elif level == 'menu':
         # Get the channel name
         # Update the screen
         print(channels[select_channel])
+        lcd.message(channels[select_channel])
         if select_channel == current_channel:
             print('Now Playing')
+            lcd.message('Now playing')
     else:
         print('Invalid display level')
     return None
@@ -121,9 +137,14 @@ if __name__ == "__main__":
     level = 'song'
     # Loop for user input
     update_display(level, channels, select_channel, current_channel)
+    buttons = (LCD.SELECT, LCD.LEFT, LCD.UP, LCD.DOWN, LCD.RIGHT)
     while True:
         try:
-            button = input('key: ')
+            button = None
+            for key in buttons:
+                if lcd.is_pressed(key):
+                    button = key
+            #button = input('key: ')
             if level == 'menu':
                 if button == UP:
                     select_channel = (select_channel+1) % nch
@@ -151,9 +172,10 @@ if __name__ == "__main__":
             else:
                 print('Invalid level.')
             update_display(level, channels, select_channel, current_channel)
+            sleep(1)
         except (KeyboardInterrupt, SystemExit):
             pianobar.terminate()
             raise
     print('Shutting down.')
-    pianobar.kill()
+    pianobar.terminate()
 
