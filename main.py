@@ -69,7 +69,7 @@ def get_song_progress():
     pass
 
 def send_command(cmd):
-    print('sending command' + cmd)
+    #print('sending command' + cmd)
     cmd = bytearray(cmd, 'utf-8')
     pianobar.stdin.write(cmd)
     pianobar.stdin.flush()
@@ -85,26 +85,30 @@ def switch_channel(channel_index):
     send_command(cmd)
     
 def volume_up():
+    print('vol +')
     cmd = ')'
     send_command(cmd)
 
 def volume_down():
+    print('vol -')
     cmd = '('
     send_command(cmd)
 
 def next_song():
+    print('next')
     cmd = 'n'
     send_command(cmd)
 
 def like_song():
+    print('thumbs up')
     cmd = '+'
     send_command(cmd)
 
 def update_display(level, channels, select_channel, current_channel):
     lcd.clear()
     if level == 'start':
-        print('Initalizing')
-        lcd.message('Initalizing')
+        print('Initalizing...')
+        lcd.message('Initalizing...')
     elif level == 'song':
         # Get the song name and current progress
         # Update the screen accordingly
@@ -117,7 +121,7 @@ def update_display(level, channels, select_channel, current_channel):
         lcd.message(channels[select_channel])
         if select_channel == current_channel:
             print('Now Playing')
-            lcd.message('Now playing')
+            lcd.message('\nNow playing')
     else:
         print('Invalid display level')
     return None
@@ -140,39 +144,36 @@ if __name__ == "__main__":
     buttons = (LCD.SELECT, LCD.LEFT, LCD.UP, LCD.DOWN, LCD.RIGHT)
     while True:
         try:
-            button = None
-            for key in buttons:
-                if lcd.is_pressed(key):
-                    button = key
-            #button = input('key: ')
-            if level == 'menu':
-                if button == UP:
-                    select_channel = (select_channel+1) % nch
-                elif button == DOWN:
-                    select_channel = (select_channel-1) % nch
-                elif button == RIGHT or button == SELECT:
-                    level = 'song'
-                    current_channel = select_channel
-                    print('Starting to play: ' + repr(channels[current_channel]))
-                    switch_channel(current_channel)
-                elif button == LEFT:
-                    # Quit
-                    break
-            elif level == 'song':
-                if button == UP:
-                    volume_up()
-                elif button == DOWN:
-                    volume_down()
-                elif button == RIGHT:
-                    next_song()
-                elif button == LEFT:
-                    level = 'menu'
-                elif button == SELECT:
-                    like_song()
-            else:
-                print('Invalid level.')
-            update_display(level, channels, select_channel, current_channel)
-            sleep(1)
+            for button in buttons:
+                if lcd.is_pressed(button):
+                    #button = input('key: ')
+                    if level == 'menu':
+                        if button == UP:
+                            select_channel = (select_channel+1) % nch
+                        elif button == DOWN:
+                            select_channel = (select_channel-1) % nch
+                        elif button == RIGHT or button == SELECT:
+                            level = 'song'
+                            current_channel = select_channel
+                            print('Starting to play: ' + repr(channels[current_channel]))
+                            switch_channel(current_channel)
+                        elif button == LEFT:
+                            # Quit
+                            break
+                    elif level == 'song':
+                        if button == UP:
+                            volume_up()
+                        elif button == DOWN:
+                            volume_down()
+                        elif button == RIGHT:
+                            next_song()
+                        elif button == LEFT:
+                            level = 'menu'
+                        elif button == SELECT:
+                            like_song()
+                    else:
+                        print('Invalid level.')
+                    update_display(level, channels, select_channel, current_channel)
         except (KeyboardInterrupt, SystemExit):
             pianobar.terminate()
             raise
