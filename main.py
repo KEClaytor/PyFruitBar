@@ -45,22 +45,41 @@ SELECT = LCD.SELECT
 
 def get_channels():
     channels = []
-    p = re.compile('(\d{1,})\)[\sqS]{5}(.*)')
+    chan = re.compile('(\d{1,})\)[\sqS]{5}(.*)')
     while True:
         try:  line = q.get_nowait() # or q.get(timeout=.1)
         except Empty:
-            print('No more channels.')
+            print('Finished scanning channels.')
             break
         else: # got line
             test = line.rstrip().decode("utf-8")
-            m = p.search(test)
+            m = chan.search(test)
             #print(test)
             if m is not None:
-                (index, name) = p.search(test).groups()
+                (index, name) = m.groups()
                 #print("found: {} {}".format(name, index))
                 channels.append(name)
     
     return channels
+
+def update_now_playing():
+    now_playing = ''
+    playing = re.compile('"(.*)" by "(.*)" on "(.*)"')
+    while True:
+        try:  line = q.get_nowait() # or q.get(timeout=.1)
+        except Empty:
+            #print('Finished Searching for song.')
+            break
+        else: # got line
+            test = line.rstrip().decode("utf-8")
+            print(test)
+            m = playing.search(test)
+            #print(test)
+            if m is not None:
+                (song, band, album) = m.groups()
+                print("found: {} by {} on {}".format(song, band, album))
+                now_playing = song
+    return now_playing
 
 def get_song_name():
     pass
@@ -104,7 +123,7 @@ def like_song():
     cmd = '+'
     send_command(cmd)
 
-def update_display(level, channels, select_channel, current_channel):
+def update_display(level, channels, select_channel, current_channel, now_playing):
     lcd.clear()
     if level == 'start':
         print('Initalizing...')
@@ -112,8 +131,10 @@ def update_display(level, channels, select_channel, current_channel):
     elif level == 'song':
         # Get the song name and current progress
         # Update the screen accordingly
-        print('Playing a song')
-        lcd.message('Now playing:')
+        print('Now playing')
+        print(now_playing)
+        lcd.message('Now playing:\n')
+        lcd.message(now_playing)
     elif level == 'menu':
         # Get the channel name
         # Update the screen
@@ -128,19 +149,25 @@ def update_display(level, channels, select_channel, current_channel):
 
 if __name__ == "__main__":
     # Give pianobar a few seconds to make contact and login
-    update_display('start', [], 0, 0)
+    update_display('start', [], 0, 0, '')
     sleep(5)
     # Load up the last settings
+    now_playing = ''
     current_channel = 0
     select_channel = current_channel
     # Get the channel list
+    print('Searching for channels')
     channels = get_channels()
     nch = len(channels)
+    while not nch:
+        send_command('s')
+        channels = get_channels()
+        nch = len(channels)
     print('Found {} channels'.format(nch))
     start_channel(current_channel)
     level = 'song'
     # Loop for user input
-    update_display(level, channels, select_channel, current_channel)
+    update_display(level, channels, select_channel, current_channel, now_playing)
     buttons = (LCD.SELECT, LCD.LEFT, LCD.UP, LCD.DOWN, LCD.RIGHT)
     while True:
         try:
@@ -173,7 +200,11 @@ if __name__ == "__main__":
                             like_song()
                     else:
                         print('Invalid level.')
-                    update_display(level, channels, select_channel, current_channel)
+                    update_display(level, channels, select_channel, current_channel, now_playing)
+            song_changed = update_now_playing()
+            if song_changed:
+                now_playing = song_changed
+                update_display(level, channels, select_channel, current_channel, now_playing)
         except (KeyboardInterrupt, SystemExit):
             pianobar.terminate()
             raise
