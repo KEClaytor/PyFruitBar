@@ -1,4 +1,5 @@
 import re
+from time import sleep
 import sys
 from subprocess import PIPE, Popen
 from threading  import Thread
@@ -24,8 +25,16 @@ t = Thread(target=enqueue_output, args=(pianobar.stdout, q))
 t.daemon = True # thread dies with the program
 t.start()
 
+# Some key definitions
+LEFT = 'a'
+UP = 'w'
+DOWN = 's'
+RIGHT = 'd'
+SELECT = 'e'
+
 def get_channels():
     channels = []
+    p = re.compile('(\d{1,})\)[\sqS]{5}(.*)')
     while True:
         try:  line = q.get_nowait() # or q.get(timeout=.1)
         except Empty:
@@ -48,65 +57,82 @@ def get_song_name():
 def get_song_progress():
     pass
 
-def send_command(cmd)
+def send_command(cmd):
+    print('sending command' + cmd)
+    cmd = bytearray(cmd, 'utf-8')
     pianobar.stdin.write(cmd)
     pianobar.stdin.flush()
 
 def start_channel(channel_index):
-    cmd = bytearray(repr(channel_index)+'\n', 'utf-8')
+    cmd = repr(channel_index)+'\n'
     send_command(cmd)
 
 def switch_channel(channel_index):
-    cmd = bytearray('s'+repr(channel_index)+'\n', 'utf-8')
+    cmd = 's'
+    send_command(cmd)
+    cmd = repr(channel_index)+'\n'
     send_command(cmd)
     
 def volume_up():
-    cmd = bytearray('+', 'utf-8')
+    cmd = ')'
     send_command(cmd)
 
 def volume_down():
-    cmd = bytearray('-', 'utf-8')
+    cmd = '('
     send_command(cmd)
 
 def next_song():
-    cmd = bytearray('n', 'utf-8')
+    cmd = 'n'
     send_command(cmd)
 
 def like_song():
-    cmd = bytearray('TODO', 'utf-8')
+    cmd = '+'
     send_command(cmd)
 
-def update_screen(level):
-    if level == 'song':
+def update_display(level, channels, select_channel, current_channel):
+    if level == 'start':
+        print('Initalizing')
+    elif level == 'song':
         # Get the song name and current progress
         # Update the screen accordingly
+        print('Playing a song')
     elif level == 'menu':
         # Get the channel name
         # Update the screen
+        print(channels[select_channel])
+        if select_channel == current_channel:
+            print('Now Playing')
     else:
         print('Invalid display level')
     return None
 
 if __name__ == "__main__":
     # Give pianobar a few seconds to make contact and login
+    update_display('start', [], 0, 0)
     sleep(5)
     # Load up the last settings
     current_channel = 0
+    select_channel = current_channel
     # Get the channel list
     channels = get_channels()
     nch = len(channels)
+    print('Found {} channels'.format(nch))
     start_channel(current_channel)
     level = 'song'
     # Loop for user input
+    update_display(level, channels, select_channel, current_channel)
     while True:
         try:
+            button = input('key: ')
             if level == 'menu':
                 if button == UP:
-                    current_channel = mod(current_channel+1, nch)
+                    select_channel = (select_channel+1) % nch
                 elif button == DOWN:
-                    current_channel = mod(current_channel-1, nch)
-                elif button == RIGHT:
+                    select_channel = (select_channel-1) % nch
+                elif button == RIGHT or button == SELECT:
                     level = 'song'
+                    current_channel = select_channel
+                    print('Starting to play: ' + repr(channels[current_channel]))
                     switch_channel(current_channel)
                 elif button == LEFT:
                     # Quit
@@ -124,8 +150,10 @@ if __name__ == "__main__":
                     like_song()
             else:
                 print('Invalid level.')
-            update_display(level)
-        except: #ctrl-c
-            break
+            update_display(level, channels, select_channel, current_channel)
+        except (KeyboardInterrupt, SystemExit):
+            pianobar.terminate()
+            raise
     print('Shutting down.')
+    pianobar.kill()
 
